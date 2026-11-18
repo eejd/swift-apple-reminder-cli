@@ -39,6 +39,7 @@ enum LinkCommand {
   }
 
   static func resolve(values: ParsedValues) async throws -> LinkResult {
+    let policy = try ReminderPolicy.load()
     let store = RemindersStore()
     try await store.requestAccess()
 
@@ -47,6 +48,7 @@ enum LinkCommand {
         throw RemindCoreError.operationFailed("Use a reminder id or list target, not both")
       }
       let list = try await store.resolveList(target)
+      try policy.ensureReadable(listName: list.title)
       return LinkResult(
         kind: "list", id: list.id, title: list.title, url: ReminderLinks.listURL(id: list.id).absoluteString)
     }
@@ -54,7 +56,7 @@ enum LinkCommand {
     guard let input = values.argument(0) else {
       throw ParsedValuesError.missingArgument("id")
     }
-    let reminders = try await store.reminders(in: nil)
+    let reminders = policy.filterReadable(try await store.reminders(in: nil))
     guard let reminder = try CommandHelpers.resolveShowIdentifiers([input], from: reminders).first else {
       throw RemindCoreError.reminderNotFound(input)
     }

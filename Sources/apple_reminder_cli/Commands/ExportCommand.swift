@@ -44,10 +44,14 @@ enum ExportCommand {
         "apple_reminder_cli export --list-id 7A12 --json",
       ]
     ) { values, runtime in
+      let policy = try ReminderPolicy.load()
       let store = RemindersStore()
       try await store.requestAccess()
       let target = try CommandHelpers.listTarget(name: values.option("list"), id: values.option("listID"))
-      let reminders = try await store.reminders(matching: target)
+      if let target {
+        try policy.ensureReadable(listName: try await CommandHelpers.listTitle(target, store: store))
+      }
+      let reminders = policy.filterReadable(try await store.reminders(matching: target))
       let sorted = ReminderFiltering.sort(reminders)
 
       switch try outputMode(exportFormat: values.option("exportFormat"), runtimeFormat: runtime.outputFormat) {

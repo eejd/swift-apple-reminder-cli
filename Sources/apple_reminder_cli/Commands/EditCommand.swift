@@ -130,7 +130,9 @@ enum EditCommand {
       }
 
       var requiredCapabilities: Set<ReminderPolicyCapability> = []
-      if title != nil || notes != nil || dateUpdates.dueDate != nil || priority != nil || listName != nil {
+      if title != nil || notes != nil || urlUpdate != nil || dateUpdates.dueDate != nil
+        || dateUpdates.alarmDate != nil || priority != nil || recurrenceUpdate != nil || targetList != nil
+      {
         requiredCapabilities.insert(.edit)
       }
       if isCompleted != nil {
@@ -139,8 +141,11 @@ enum EditCommand {
       for capability in requiredCapabilities {
         try policy.ensureAllowed(capability, forListNamed: reminder.listName)
       }
-      if let listName, listName != reminder.listName {
-        try policy.ensureAllowed(.add, forListNamed: listName)
+      if let targetList {
+        let destination = try await CommandHelpers.listTitle(targetList, store: store)
+        if destination != reminder.listName {
+          try policy.ensureAllowed(.add, forListNamed: destination)
+        }
       }
 
       let update = ReminderUpdate(

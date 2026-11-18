@@ -48,9 +48,13 @@ enum OpenCommand {
         listID: values.option("listID"),
         app: values.flag("app")
       ) {
+        let policy = try ReminderPolicy.load()
         let store = RemindersStore()
         try await store.requestAccess()
-        let reminders = try await store.reminders(matching: listTarget)
+        if let listTarget {
+          try policy.ensureReadable(listName: try await CommandHelpers.listTitle(listTarget, store: store))
+        }
+        let reminders = policy.filterReadable(try await store.reminders(matching: listTarget))
         OutputRenderer.printReminders(ReminderFiltering.apply(reminders, filter: .open), format: runtime.outputFormat)
         return
       }
