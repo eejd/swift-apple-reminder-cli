@@ -64,7 +64,13 @@ enum CommandHelpers {
   static func listTitle(_ target: ReminderListTarget, store: RemindersStore) async throws -> String {
     switch target {
     case .name(let name):
-      return name
+      // Mirror the store's matching (exact, then case/diacritic/punctuation-insensitive) so a
+      // loosely spelled name is checked against the policy of the list it will actually hit.
+      let lists = await store.lists()
+      if lists.contains(where: { $0.title == name }) {
+        return name
+      }
+      return try ListResolver.resolve(name, in: lists).title
     case .id:
       return try await store.resolveList(target).title
     }

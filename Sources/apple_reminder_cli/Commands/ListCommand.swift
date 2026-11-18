@@ -68,7 +68,8 @@ enum ListCommand {
       if let listID {
         gatedNames = [try await store.resolveList(.id(listID)).title]
       }
-      for name in gatedNames {
+      for requested in gatedNames {
+        let name = action == .create ? requested : try await CommandHelpers.listTitle(.name(requested), store: store)
         switch action {
         case .delete:
           try policy.ensureAllowed(.deleteList, forListNamed: name)
@@ -128,6 +129,7 @@ enum ListCommand {
           let list: ReminderList
           let created: Bool
           if let existing {
+            try policy.ensureReadable(listName: existing.title)
             list = existing
             created = false
           } else {
