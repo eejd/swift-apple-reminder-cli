@@ -25,9 +25,10 @@ enum InfoCommand {
         throw ParsedValuesError.missingArgument("id")
       }
 
+      let policy = try ReminderPolicy.load()
       let store = RemindersStore()
       try await store.requestAccess()
-      let reminders = try await store.reminders(in: nil)
+      let reminders = policy.filterReadable(try await store.reminders(in: nil))
       let resolved = try CommandHelpers.resolveShowIdentifiers([input], from: reminders)
       guard let reminder = resolved.first else {
         throw RemindCoreError.reminderNotFound(input)

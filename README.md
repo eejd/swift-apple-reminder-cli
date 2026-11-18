@@ -112,6 +112,19 @@ Use `apple_reminder_cli policy` to inspect the current effective rules and
 Use `apple_reminder_cli permission-setting` if you want a guided step-by-step editor.
 For stable automation or precise edits, prefer `apple_reminder_cli policy set` and `apple_reminder_cli policy unset`.
 
+### Policy coverage
+Every command that reads or changes reminders goes through the policy. `--list-id` is resolved to the list title first, then checked like `--list`.
+- `show`, `list`, `open <filter>`: explicit list needs read access (`readCompleted` for `completed`); results are filtered per list.
+- `search`: results filtered per list; `--list`/`--list-id` needs read access, plus `readCompleted` with `--completed`.
+- `info`, `link`, `open <id>`: only readable reminders resolve; a hidden reminder is reported as not found.
+- `link`/`open --list` (with or without `--app`): the list needs read access.
+- `export`: reminders filtered per list; `--list`/`--list-id` needs read access.
+- `add`: needs `add` on the target list (also with `--alarm/--repeat/--url/--location`).
+- `edit`: needs `edit` on the source list for any field change (including alarms, recurrence, URL); moving with `--list`/`--list-id` also needs `add` on the destination.
+- `complete`, `delete`: `complete`/`delete` on the reminder's list.
+- `list <name> --create`: needs `createList` for the requested name even if the list already exists.
+- `doctor`, `completion`, `status`, `authorize`: not gated (no reminder content).
+
 ## Date formats
 Accepted by `--due` and filters:
 - `today`, `tomorrow`, `yesterday`

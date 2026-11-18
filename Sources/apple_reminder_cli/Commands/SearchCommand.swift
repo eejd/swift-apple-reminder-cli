@@ -42,11 +42,19 @@ enum SearchCommand {
         throw ParsedValuesError.missingArgument("query")
       }
 
+      let policy = try ReminderPolicy.load()
       let store = RemindersStore()
       try await store.requestAccess()
       let listTarget = try CommandHelpers.listTarget(name: values.option("list"), id: values.option("listID"))
-      let reminders = try await store.reminders(matching: listTarget)
       let includeCompleted = values.flag("completed")
+      if let listTarget {
+        let listName = try await CommandHelpers.listTitle(listTarget, store: store)
+        try policy.ensureReadable(listName: listName)
+        if includeCompleted {
+          try policy.ensureAllowed(.readCompleted, forListNamed: listName)
+        }
+      }
+      let reminders = policy.filterReadable(try await store.reminders(matching: listTarget))
       let matches = reminders.filter { reminder in
         (includeCompleted || !reminder.isCompleted)
           && CommandHelpers.reminder(reminder, matchesSearch: query)
