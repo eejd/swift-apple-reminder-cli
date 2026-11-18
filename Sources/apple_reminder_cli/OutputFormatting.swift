@@ -120,7 +120,7 @@ enum OutputRenderer {
 
   static func printPolicy(_ summary: PolicySummary, format: OutputFormat) {
     switch format {
-    case .standard:
+    case .standard, .table:
       printPolicyStandard(summary)
     case .plain:
       printPolicyPlain(summary)
@@ -133,7 +133,7 @@ enum OutputRenderer {
 
   static func printPolicyLists(_ entries: [PolicyListEntry], format: OutputFormat) {
     switch format {
-    case .standard:
+    case .standard, .table:
       if entries.isEmpty {
         Swift.print("No lists found")
         return

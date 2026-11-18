@@ -57,7 +57,8 @@ enum ShowCommand {
 
       let store = RemindersStore()
       try await store.requestAccess()
-      if let listName = try await CommandHelpers.listTitle(listTarget, store: store) {
+      if let listTarget {
+        let listName = try await CommandHelpers.listTitle(listTarget, store: store)
         if filter == .completed {
           try policy.ensureAllowed(.readCompleted, forListNamed: listName)
         } else {

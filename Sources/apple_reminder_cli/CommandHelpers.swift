@@ -61,14 +61,12 @@ enum CommandHelpers {
   }
 
   /// Title of the targeted list, resolving IDs, so policy checks always see the list name.
-  static func listTitle(_ target: ReminderListTarget?, store: RemindersStore) async throws -> String? {
+  static func listTitle(_ target: ReminderListTarget, store: RemindersStore) async throws -> String {
     switch target {
-    case nil:
-      return nil
     case .name(let name):
       return name
     case .id:
-      return try await store.resolveList(target!).title
+      return try await store.resolveList(target).title
     }
   }
 

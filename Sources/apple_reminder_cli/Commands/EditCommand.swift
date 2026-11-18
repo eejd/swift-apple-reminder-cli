@@ -130,7 +130,7 @@ enum EditCommand {
       }
 
       var requiredCapabilities: Set<ReminderPolicyCapability> = []
-      if title != nil || notes != nil || dueUpdate != nil || priority != nil || listName != nil {
+      if title != nil || notes != nil || dateUpdates.dueDate != nil || priority != nil || listName != nil {
         requiredCapabilities.insert(.edit)
       }
       if isCompleted != nil {

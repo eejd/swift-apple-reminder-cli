@@ -129,7 +129,7 @@ enum AddCommand {
       guard let targetList else {
         throw RemindCoreError.operationFailed("No default list found. Specify --list.")
       }
-      try policy.ensureAllowed(.add, forListNamed: targetList)
+      try policy.ensureAllowed(.add, forListNamed: try await CommandHelpers.listTitle(targetList, store: store))
 
       let draft = ReminderDraft(
         title: title,
