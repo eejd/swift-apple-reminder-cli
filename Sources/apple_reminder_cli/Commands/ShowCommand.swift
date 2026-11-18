@@ -7,13 +7,13 @@ enum ShowCommand {
     CommandSpec(
       name: "show",
       abstract: "Show reminders",
-      discussion: "Filters: today, tomorrow, week, overdue, upcoming, completed, all, or a date string.",
+      discussion: "Filters: today, tomorrow, week, overdue, upcoming, open, completed, all, or a date string.",
       signature: CommandSignatures.withRuntimeFlags(
         CommandSignature(
           arguments: [
             .make(
               label: "filter",
-              help: "today|tomorrow|week|overdue|upcoming|completed|all|<date>",
+              help: "today|tomorrow|week|overdue|upcoming|open|completed|all|<date>",
               isOptional: true
             )
           ],
@@ -23,7 +23,13 @@ enum ShowCommand {
               names: [.short("l"), .long("list")],
               help: "Limit to a specific list",
               parsing: .singleValue
-            )
+            ),
+            .make(
+              label: "listID",
+              names: [.long("list-id")],
+              help: "Limit to a list by ID or ID prefix",
+              parsing: .singleValue
+            ),
           ]
         )
       ),
@@ -35,7 +41,7 @@ enum ShowCommand {
         "apple_reminder_cli show --list Work",
       ]
     ) { values, runtime in
-      let listName = values.option("list")
+      let listTarget = try CommandHelpers.listTarget(name: values.option("list"), id: values.option("listID"))
       let filterToken = values.argument(0)
       let policy = try ReminderPolicy.load()
 
@@ -49,7 +55,9 @@ enum ShowCommand {
         filter = .today
       }
 
-      if let listName {
+      let store = RemindersStore()
+      try await store.requestAccess()
+      if let listName = try await CommandHelpers.listTitle(listTarget, store: store) {
         if filter == .completed {
           try policy.ensureAllowed(.readCompleted, forListNamed: listName)
         } else {
@@ -57,9 +65,7 @@ enum ShowCommand {
         }
       }
 
-      let store = RemindersStore()
-      try await store.requestAccess()
-      let reminders = try await store.reminders(in: listName)
+      let reminders = try await store.reminders(matching: listTarget)
       let filtered = ReminderFiltering.apply(policy.filterReadable(reminders), filter: filter)
       OutputRenderer.printReminders(filtered, format: runtime.outputFormat)
     }

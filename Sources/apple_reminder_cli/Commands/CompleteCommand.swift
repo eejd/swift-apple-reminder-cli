@@ -11,7 +11,7 @@ enum CompleteCommand {
       signature: CommandSignatures.withRuntimeFlags(
         CommandSignature(
           arguments: [
-            .make(label: "ids", help: "Indexes or ID prefixes", isOptional: true)
+            .make(label: "ids", help: "Indexes or ID prefixes", isOptional: true, parsing: .remaining)
           ],
           flags: [
             .make(label: "dryRun", names: [.short("n"), .long("dry-run")], help: "Preview without changes")
@@ -33,7 +33,7 @@ enum CompleteCommand {
       let store = RemindersStore()
       try await store.requestAccess()
       let reminders = policy.filterReadable(try await store.reminders(in: nil))
-      let resolved = try IDResolver.resolve(inputs, from: reminders)
+      let resolved = try CommandHelpers.resolveShowIdentifiers(inputs, from: reminders)
 
       if values.flag("dryRun") {
         OutputRenderer.printReminders(resolved, format: runtime.outputFormat)

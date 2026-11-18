@@ -9,13 +9,14 @@ let package = Package(
     .executable(name: "apple_reminder_cli", targets: ["apple_reminder_cli"]),
   ],
   dependencies: [
-    .package(url: "https://github.com/steipete/Commander.git", from: "0.2.0"),
+    .package(url: "https://github.com/steipete/Commander.git", from: "0.3.0"),
   ],
   targets: [
     .target(
       name: "RemindCore",
       dependencies: [],
       linkerSettings: [
+        .linkedFramework("CoreLocation"),
         .linkedFramework("EventKit"),
       ]
     ),

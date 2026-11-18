@@ -2,6 +2,8 @@ import EventKit
 import Foundation
 
 public actor RemindersStore {
+  static let externalOperationTimeout: Duration = .seconds(30)
+
   private let eventStore = EKEventStore()
   private let calendar: Calendar
 
@@ -47,22 +49,25 @@ public actor RemindersStore {
     }
   }
 
-  public func defaultListName() -> String? {
-    eventStore.defaultCalendarForNewReminders()?.title
+  public func resolveList(_ target: ReminderListTarget) async throws -> ReminderList {
+    try resolvedList(matching: target, in: await lists())
+  }
+
+  public func defaultListName() -> String? { defaultList()?.title }
+
+  public func defaultList() -> ReminderList? {
+    guard let calendar = eventStore.defaultCalendarForNewReminders() else {
+      return nil
+    }
+    return ReminderList(id: calendar.calendarIdentifier, title: calendar.title)
   }
 
   public func reminders(in listName: String? = nil) async throws -> [ReminderItem] {
-    let calendars: [EKCalendar]
-    if let listName {
-      calendars = eventStore.calendars(for: .reminder).filter { $0.title == listName }
-      if calendars.isEmpty {
-        throw RemindCoreError.listNotFound(listName)
-      }
-    } else {
-      calendars = eventStore.calendars(for: .reminder)
-    }
+    try await reminders(matching: listName.map(ReminderListTarget.name))
+  }
 
-    return await fetchReminders(in: calendars)
+  public func reminders(matching target: ReminderListTarget?) async throws -> [ReminderItem] {
+    try await fetchReminders(in: try calendars(matching: target))
   }
 
   public func createList(name: String) async throws -> ReminderList {
@@ -77,7 +82,11 @@ public actor RemindersStore {
   }
 
   public func renameList(oldName: String, newName: String) async throws {
-    let calendar = try calendar(named: oldName)
+    try await renameList(target: .name(oldName), newName: newName)
+  }
+
+  public func renameList(target: ReminderListTarget, newName: String) async throws {
+    let calendar = try calendar(matching: target)
     guard calendar.allowsContentModifications else {
       throw RemindCoreError.operationFailed("Cannot modify system list")
     }
@@ -86,76 +95,91 @@ public actor RemindersStore {
   }
 
   public func deleteList(name: String) async throws {
-    let calendar = try calendar(named: name)
+    try await deleteList(target: .name(name))
+  }
+
+  public func deleteList(target: ReminderListTarget) async throws {
+    let calendar = try calendar(matching: target)
     guard calendar.allowsContentModifications else {
       throw RemindCoreError.operationFailed("Cannot delete system list")
     }
     try eventStore.removeCalendar(calendar, commit: true)
   }
 
-  public func createReminder(_ draft: ReminderDraft, listName: String) async throws -> ReminderItem {
-    let calendar = try calendar(named: listName)
+  public func createReminder(_ draft: ReminderDraft, target: ReminderListTarget) async throws -> ReminderItem {
+    let calendar = try calendar(matching: target)
     let reminder = EKReminder(eventStore: eventStore)
     reminder.title = draft.title
-    reminder.notes = draft.notes
+    reminder.url = draft.url
+    // Reminders.app does not surface EventKit's URL field, so also keep one managed notes link.
+    reminder.notes = ReminderURLNoteMirror.apply(notes: draft.notes, showing: draft.url)
     reminder.calendar = calendar
     reminder.priority = draft.priority.eventKitValue
     if let dueDate = draft.dueDate {
       reminder.dueDateComponents = calendarComponents(from: dueDate)
     }
+    if let alarmDate = draft.alarmDate {
+      reminder.addAlarm(EKAlarm(absoluteDate: alarmDate.date))
+    } else if let dueDate = draft.dueDate, !dueDate.isDateOnly {
+      reminder.addAlarm(EKAlarm(absoluteDate: dueDate.date))
+    }
+    if let recurrenceRule = draft.recurrenceRule {
+      replaceRecurrence(on: reminder, with: recurrenceRule)
+    }
+    if let locationTrigger = draft.locationTrigger {
+      reminder.addAlarm(try await locationAlarm(from: locationTrigger))
+    }
     try eventStore.save(reminder, commit: true)
-    return ReminderItem(
-      id: reminder.calendarItemIdentifier,
-      title: reminder.title ?? "",
-      notes: reminder.notes,
-      isCompleted: reminder.isCompleted,
-      completionDate: reminder.completionDate,
-      priority: ReminderPriority(eventKitValue: Int(reminder.priority)),
-      dueDate: date(from: reminder.dueDateComponents),
-      listID: reminder.calendar.calendarIdentifier,
-      listName: reminder.calendar.title
-    )
+    return try item(from: reminder)
   }
 
   public func updateReminder(id: String, update: ReminderUpdate) async throws -> ReminderItem {
     let reminder = try reminder(withID: id)
+    let originalCalendarID = reminder.calendar?.calendarIdentifier
 
     if let title = update.title {
       reminder.title = title
     }
-    if let notes = update.notes {
-      reminder.notes = notes
+    if update.notes != nil || update.url != nil {
+      let merged = ReminderURLNoteMirror.applyingUpdates(
+        currentNotes: reminder.notes,
+        currentURL: reminder.url,
+        notesUpdate: update.notes,
+        urlUpdate: update.url
+      )
+      (reminder.notes, reminder.url) = (merged.notes, merged.url)
     }
     if let dueDateUpdate = update.dueDate {
       if let dueDate = dueDateUpdate {
+        reminder.dueDateComponents = nil
         reminder.dueDateComponents = calendarComponents(from: dueDate)
       } else {
         reminder.dueDateComponents = nil
       }
     }
+    if let alarmDateUpdate = update.alarmDate {
+      ReminderAlarmMutation.replaceDateAlarms(on: reminder, with: alarmDateUpdate?.date)
+    }
+    if let recurrenceUpdate = update.recurrenceRule {
+      replaceRecurrence(on: reminder, with: recurrenceUpdate)
+    }
     if let priority = update.priority {
       reminder.priority = priority.eventKitValue
     }
-    if let listName = update.listName {
-      reminder.calendar = try calendar(named: listName)
+    if let listTarget = update.listTarget {
+      reminder.calendar = try calendar(matching: listTarget)
+    } else if let listName = update.listName {
+      reminder.calendar = try calendar(matching: .name(listName))
     }
     if let isCompleted = update.isCompleted {
       reminder.isCompleted = isCompleted
     }
 
-    try eventStore.save(reminder, commit: true)
+    try ReminderUpdateSave.save(isMoving: reminder.calendar?.calendarIdentifier != originalCalendarID) {
+      try eventStore.save(reminder, commit: true)
+    }
 
-    return ReminderItem(
-      id: reminder.calendarItemIdentifier,
-      title: reminder.title ?? "",
-      notes: reminder.notes,
-      isCompleted: reminder.isCompleted,
-      completionDate: reminder.completionDate,
-      priority: ReminderPriority(eventKitValue: Int(reminder.priority)),
-      dueDate: date(from: reminder.dueDateComponents),
-      listID: reminder.calendar.calendarIdentifier,
-      listName: reminder.calendar.title
-    )
+    return try item(from: reminder)
   }
 
   public func completeReminders(ids: [String]) async throws -> [ReminderItem] {
@@ -164,19 +188,7 @@ public actor RemindersStore {
       let reminder = try reminder(withID: id)
       reminder.isCompleted = true
       try eventStore.save(reminder, commit: true)
-      updated.append(
-        ReminderItem(
-          id: reminder.calendarItemIdentifier,
-          title: reminder.title ?? "",
-          notes: reminder.notes,
-          isCompleted: reminder.isCompleted,
-          completionDate: reminder.completionDate,
-          priority: ReminderPriority(eventKitValue: Int(reminder.priority)),
-          dueDate: date(from: reminder.dueDateComponents),
-          listID: reminder.calendar.calendarIdentifier,
-          listName: reminder.calendar.title
-        )
-      )
+      updated.append(try item(from: reminder))
     }
     return updated
   }
@@ -190,7 +202,9 @@ public actor RemindersStore {
     }
     return deleted
   }
+}
 
+extension RemindersStore {
   private func requestFullAccess() async throws -> Bool {
     try await withCheckedThrowingContinuation { continuation in
       eventStore.requestFullAccessToReminders { granted, error in
@@ -203,52 +217,22 @@ public actor RemindersStore {
     }
   }
 
-  private func fetchReminders(in calendars: [EKCalendar]) async -> [ReminderItem] {
-    struct ReminderData: Sendable {
-      let id: String
-      let title: String
-      let notes: String?
-      let isCompleted: Bool
-      let completionDate: Date?
-      let priority: Int
-      let dueDateComponents: DateComponents?
-      let listID: String
-      let listName: String
-    }
-
-    let reminderData = await withCheckedContinuation { (continuation: CheckedContinuation<[ReminderData], Never>) in
-      let predicate = eventStore.predicateForReminders(in: calendars)
-      eventStore.fetchReminders(matching: predicate) { reminders in
-        let data = (reminders ?? []).map { reminder in
-          ReminderData(
-            id: reminder.calendarItemIdentifier,
-            title: reminder.title ?? "",
-            notes: reminder.notes,
-            isCompleted: reminder.isCompleted,
-            completionDate: reminder.completionDate,
-            priority: Int(reminder.priority),
-            dueDateComponents: reminder.dueDateComponents,
-            listID: reminder.calendar.calendarIdentifier,
-            listName: reminder.calendar.title
-          )
-        }
-        continuation.resume(returning: data)
+  private func fetchReminders(in calendars: [EKCalendar]) async throws -> [ReminderItem] {
+    let context = EventKitFetchContext(eventStore: eventStore, calendars: calendars)
+    let reminderData: [ReminderData] = try await AsyncTimeout.withTimeout(
+      after: Self.externalOperationTimeout,
+      timeoutError: .operationFailed("Timed out waiting for EventKit reminders after 30 seconds")
+    ) { completion in
+      let predicate = context.eventStore.predicateForReminders(in: context.calendars)
+      let identifier = context.eventStore.fetchReminders(matching: predicate) { reminders in
+        guard let claim = completion.claim() else { return }
+        claim.resume(returning: (reminders ?? []).compactMap(Self.reminderData(from:)))
       }
+      let request = EventKitFetchCancellation(eventStore: context.eventStore, identifier: identifier)
+      return { request.cancel() }
     }
 
-    return reminderData.map { data in
-      ReminderItem(
-        id: data.id,
-        title: data.title,
-        notes: data.notes,
-        isCompleted: data.isCompleted,
-        completionDate: data.completionDate,
-        priority: ReminderPriority(eventKitValue: data.priority),
-        dueDate: date(from: data.dueDateComponents),
-        listID: data.listID,
-        listName: data.listName
-      )
-    }
+    return reminderData.map { $0.item(calendar: calendar) }
   }
 
   private func reminder(withID id: String) throws -> EKReminder {
@@ -258,34 +242,105 @@ public actor RemindersStore {
     return item
   }
 
-  private func calendar(named name: String) throws -> EKCalendar {
-    let calendars = eventStore.calendars(for: .reminder).filter { $0.title == name }
-    guard let calendar = calendars.first else {
-      throw RemindCoreError.listNotFound(name)
+  private func calendar(matching target: ReminderListTarget) throws -> EKCalendar {
+    let resolved = try resolvedList(matching: target)
+    let calendars = eventStore.calendars(for: .reminder)
+    guard let calendar = calendars.first(where: { $0.calendarIdentifier == resolved.id }) else {
+      throw RemindCoreError.listNotFound(resolved.id)
     }
     return calendar
   }
 
-  private func calendarComponents(from date: Date) -> DateComponents {
-    calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+  private func calendars(matching target: ReminderListTarget?) throws -> [EKCalendar] {
+    let calendars = eventStore.calendars(for: .reminder)
+    guard let target else {
+      return calendars
+    }
+
+    let lists = calendars.map { ReminderList(id: $0.calendarIdentifier, title: $0.title) }
+    switch target {
+    case .name(let name):
+      let resolved = try ListResolver.resolveForRead(name, in: lists)
+      let ids = Set(resolved.map(\.id))
+      return calendars.filter { ids.contains($0.calendarIdentifier) }
+    case .id:
+      let resolved = try resolvedList(matching: target, in: lists)
+      return calendars.filter { $0.calendarIdentifier == resolved.id }
+    }
   }
 
-  private func date(from components: DateComponents?) -> Date? {
-    guard let components else { return nil }
-    return calendar.date(from: components)
+  private func resolvedList(matching target: ReminderListTarget) throws -> ReminderList {
+    let lists = eventStore.calendars(for: .reminder).map { ReminderList(id: $0.calendarIdentifier, title: $0.title) }
+    return try resolvedList(matching: target, in: lists)
   }
 
-  private func item(from reminder: EKReminder) -> ReminderItem {
-    ReminderItem(
-      id: reminder.calendarItemIdentifier,
-      title: reminder.title ?? "",
-      notes: reminder.notes,
-      isCompleted: reminder.isCompleted,
-      completionDate: reminder.completionDate,
-      priority: ReminderPriority(eventKitValue: Int(reminder.priority)),
-      dueDate: date(from: reminder.dueDateComponents),
-      listID: reminder.calendar.calendarIdentifier,
-      listName: reminder.calendar.title
-    )
+  private func resolvedList(matching target: ReminderListTarget, in lists: [ReminderList]) throws -> ReminderList {
+    switch target {
+    case .name(let name):
+      return try ListResolver.resolve(name, in: lists)
+    case .id(let id):
+      return try ListResolver.resolveID(id, in: lists)
+    }
+  }
+
+  private func calendarComponents(from parsed: ParsedUserDate) -> DateComponents {
+    let components: Set<Calendar.Component> =
+      parsed.isDateOnly
+      ? [.year, .month, .day]
+      : [.year, .month, .day, .hour, .minute, .second]
+    var result = calendar.dateComponents(components, from: parsed.date)
+    result.calendar = calendar
+    result.timeZone = calendar.timeZone
+    return result
+  }
+
+  private func item(from reminder: EKReminder) throws -> ReminderItem {
+    try Self.reminderItem(from: reminder, calendar: calendar)
+  }
+
+  private func replaceRecurrence(on reminder: EKReminder, with rule: RecurrenceRule?) {
+    for existing in reminder.recurrenceRules ?? [] {
+      reminder.removeRecurrenceRule(existing)
+    }
+    guard let rule else { return }
+    reminder.addRecurrenceRule(
+      EKRecurrenceRule(recurrenceWith: rule.eventKitFrequency, interval: rule.interval, end: nil))
+  }
+
+}
+
+extension RecurrenceFrequency {
+  init?(eventKitFrequency: EKRecurrenceFrequency) {
+    switch eventKitFrequency {
+    case .daily:
+      self = .daily
+    case .weekly:
+      self = .weekly
+    case .monthly:
+      self = .monthly
+    case .yearly:
+      self = .yearly
+    @unknown default:
+      return nil
+    }
+  }
+
+  fileprivate var eventKitFrequency: EKRecurrenceFrequency {
+    switch self {
+    case .daily:
+      return .daily
+    case .weekly:
+      return .weekly
+    case .monthly:
+      return .monthly
+    case .yearly:
+      return .yearly
+    }
+  }
+}
+
+extension RecurrenceRule {
+  fileprivate var eventKitFrequency: EKRecurrenceFrequency {
+    frequency.eventKitFrequency
   }
 }

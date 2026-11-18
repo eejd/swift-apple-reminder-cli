@@ -8,20 +8,29 @@ struct CommandRouter {
   let specs: [CommandSpec]
   let program: Program
 
+  static let commandSpecs: [CommandSpec] = [
+    ShowCommand.spec,
+    ListCommand.spec,
+    SearchCommand.spec,
+    InfoCommand.spec,
+    AddCommand.spec,
+    EditCommand.spec,
+    CompleteCommand.spec,
+    DeleteCommand.spec,
+    PolicyCommand.spec,
+    PermissionSettingCommand.spec,
+    StatusCommand.spec,
+    AuthorizeCommand.spec,
+    DoctorCommand.spec,
+    ExportCommand.spec,
+    LinkCommand.spec,
+    OpenCommand.spec,
+    CompletionCommand.spec,
+  ]
+
   init() {
     self.version = CommandRouter.resolveVersion()
-    self.specs = [
-      ShowCommand.spec,
-      ListCommand.spec,
-      AddCommand.spec,
-      EditCommand.spec,
-      CompleteCommand.spec,
-      DeleteCommand.spec,
-      PolicyCommand.spec,
-      PermissionSettingCommand.spec,
-      StatusCommand.spec,
-      AuthorizeCommand.spec,
-    ]
+    self.specs = Self.commandSpecs
     let descriptor = CommandDescriptor(
       name: rootName,
       abstract: "Manage Apple Reminders from the terminal",
@@ -38,15 +47,15 @@ struct CommandRouter {
   }
 
   func run(argv: [String]) async -> Int32 {
-    var argv = normalizeArguments(argv)
-    argv = applyAliases(argv)
+    var argv = applyAliases(argv)
+    let controlArguments = argv.prefix { $0 != "--" }
 
-    if argv.contains("--version") || argv.contains("-V") {
+    if controlArguments.contains("--version") || controlArguments.contains("-V") {
       Swift.print(version)
       return 0
     }
 
-    if argv.contains("--help") || argv.contains("-h") {
+    if controlArguments.contains("--help") || controlArguments.contains("-h") {
       printHelp(for: argv)
       return 0
     }
@@ -54,7 +63,7 @@ struct CommandRouter {
     argv = rewriteImplicitShow(argv)
 
     do {
-      let invocation = try program.resolve(argv: argv)
+      let invocation = try program.resolve(arguments: [rootName] + argv.dropFirst())
       guard let commandName = invocation.path.last,
         let spec = specs.first(where: { $0.name == commandName })
       else {
@@ -64,6 +73,7 @@ struct CommandRouter {
       }
       let runtime = RuntimeOptions(parsedValues: invocation.parsedValues)
       do {
+        try runtime.validate()
         try await spec.run(invocation.parsedValues, runtime)
         return 0
       } catch {
@@ -80,13 +90,6 @@ struct CommandRouter {
       Console.printError(error.localizedDescription)
       return 1
     }
-  }
-
-  private func normalizeArguments(_ argv: [String]) -> [String] {
-    guard !argv.isEmpty else { return argv }
-    var copy = argv
-    copy[0] = URL(fileURLWithPath: argv[0]).lastPathComponent
-    return copy
   }
 
   private func applyAliases(_ argv: [String]) -> [String] {

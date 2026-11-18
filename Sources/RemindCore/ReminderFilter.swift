@@ -6,6 +6,7 @@ public enum ReminderFilter: Equatable, Sendable {
   case week
   case overdue
   case upcoming
+  case open
   case completed
   case date(Date)
   case all
@@ -25,6 +26,8 @@ public enum ReminderFiltering {
       return .overdue
     case "upcoming", "u":
       return .upcoming
+    case "open":
+      return .open
     case "completed", "done", "c":
       return .completed
     case "all", "a":
@@ -64,7 +67,7 @@ public enum ReminderFiltering {
       let start = interval?.start ?? startOfToday
       let end = interval?.end ?? now
       return reminders.filter { reminder in
-        let inWeek = reminder.dueDate.map { $0 >= start && $0 <= end } ?? false
+        let inWeek = reminder.dueDate.map { $0 >= start && $0 < end } ?? false
         return !reminder.isCompleted && inWeek
       }
     case .overdue:
@@ -76,6 +79,8 @@ public enum ReminderFiltering {
       return reminders.filter { reminder in
         !reminder.isCompleted && reminder.dueDate != nil
       }
+    case .open:
+      return reminders.filter { !$0.isCompleted }
     case .completed:
       return reminders.filter { $0.isCompleted }
     case .date(let date):
@@ -92,17 +97,21 @@ public enum ReminderFiltering {
     reminders.sorted { lhs, rhs in
       switch (lhs.dueDate, rhs.dueDate) {
       case (nil, nil):
-        return lhs.title < rhs.title
+        break
       case (nil, _?):
         return false
       case (_?, nil):
         return true
       case (let left?, let right?):
-        if left == right {
-          return lhs.title < rhs.title
+        if left != right {
+          return left < right
         }
-        return left < right
       }
+      if lhs.title != rhs.title {
+        return lhs.title < rhs.title
+      }
+      // EventKit fetch order can change between displaying and resolving a numeric index.
+      return lhs.id < rhs.id
     }
   }
 }

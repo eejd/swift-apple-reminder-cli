@@ -7,7 +7,11 @@ enum AddCommand {
     CommandSpec(
       name: "add",
       abstract: "Add a reminder",
-      discussion: "Provide a title as an argument or via --title.",
+      discussion: """
+        Provide a title as an argument or via --title.
+        --alarm schedules a notification; it does not enable the native Urgent toggle in Reminders.app.
+        EventKit does not expose Urgent. To enable it, use Reminders.app.
+        """,
       signature: CommandSignatures.withRuntimeFlags(
         CommandSignature(
           arguments: [
@@ -16,21 +20,56 @@ enum AddCommand {
           options: [
             .make(label: "title", names: [.long("title")], help: "Reminder title", parsing: .singleValue),
             .make(label: "list", names: [.short("l"), .long("list")], help: "List name", parsing: .singleValue),
+            .make(label: "listID", names: [.long("list-id")], help: "List ID or ID prefix", parsing: .singleValue),
             .make(label: "due", names: [.short("d"), .long("due")], help: "Due date", parsing: .singleValue),
+            .make(
+              label: "alarm", names: [.short("a"), .long("alarm")], help: "Notification date", parsing: .singleValue
+            ),
+            .make(
+              label: "location",
+              names: [.long("location")],
+              help: "Location address for geofence trigger",
+              parsing: .singleValue
+            ),
+            .make(
+              label: "radius",
+              names: [.long("radius")],
+              help: "Geofence radius in meters (default: 100)",
+              parsing: .singleValue
+            ),
             .make(label: "notes", names: [.short("n"), .long("notes")], help: "Notes", parsing: .singleValue),
+            .make(
+              label: "url",
+              names: [.long("url")],
+              help: "URL (stored in EventKit and shown in Reminders notes)",
+              parsing: .singleValue
+            ),
+            .make(
+              label: "repeat",
+              names: [.short("r"), .long("repeat")],
+              help: "daily|weekly|biweekly|monthly|yearly|every N days/weeks/months/years",
+              parsing: .singleValue
+            ),
             .make(
               label: "priority",
               names: [.short("p"), .long("priority")],
               help: "none|low|medium|high",
               parsing: .singleValue
             ),
+          ],
+          flags: [
+            .make(label: "leaving", names: [.long("leaving")], help: "Trigger when leaving location")
           ]
         )
       ),
       usageExamples: [
-        "apple_reminder_cli add \"Buy milk\"",
-        "apple_reminder_cli add --title \"Call mom\" --list Personal --due tomorrow",
-        "apple_reminder_cli add \"Review docs\" --priority high",
+        "remindctl add \"Buy milk\"",
+        "remindctl add --title \"Call mom\" --list Personal --due tomorrow",
+        "remindctl add \"Call mom\" --due \"2026-01-03 09:00\" --alarm \"2026-01-03 08:55\"",
+        "remindctl add \"Check mailbox\" --location \"1 Apple Park Way, Cupertino, CA\"",
+        "remindctl add \"Take vitamins\" --due tomorrow --repeat daily",
+        "remindctl add \"Review docs\" --priority high",
+        "remindctl add \"Buy headphones\" --url \"https://example.com/product\"",
       ]
     ) { values, runtime in
       let titleOption = values.option("title")
@@ -53,11 +92,24 @@ enum AddCommand {
       }
 
       let listName = values.option("list")
+      let listID = values.option("listID")
       let notes = values.option("notes")
+      let url = try values.option("url").map(CommandHelpers.parseURL)
       let dueValue = values.option("due")
+      let alarmValue = values.option("alarm")
+      let locationValue = values.option("location")
+      let radiusValue = values.option("radius")
+      let repeatValue = values.option("repeat")
       let priorityValue = values.option("priority")
 
       let dueDate = try dueValue.map(CommandHelpers.parseDueDate)
+      let alarmDate = try alarmValue.map(CommandHelpers.parseDueDate)
+      let locationTrigger = try makeLocationTrigger(
+        location: locationValue,
+        radius: radiusValue,
+        leaving: values.flag("leaving")
+      )
+      let recurrenceRule = try repeatValue.map(CommandHelpers.parseRecurrence)
       let priority = try priorityValue.map(CommandHelpers.parsePriority) ?? .none
 
       let policy = try ReminderPolicy.load()
@@ -68,20 +120,55 @@ enum AddCommand {
       let store = RemindersStore()
       try await store.requestAccess()
 
-      let targetList: String?
-      if let listName {
-        targetList = listName
+      let targetList: ReminderListTarget?
+      if let explicitTarget = try CommandHelpers.listTarget(name: listName, id: listID) {
+        targetList = explicitTarget
       } else {
-        targetList = await store.defaultListName()
+        targetList = await store.defaultList().map { .id($0.id) }
       }
       guard let targetList else {
         throw RemindCoreError.operationFailed("No default list found. Specify --list.")
       }
       try policy.ensureAllowed(.add, forListNamed: targetList)
 
-      let draft = ReminderDraft(title: title, notes: notes, dueDate: dueDate, priority: priority)
-      let reminder = try await store.createReminder(draft, listName: targetList)
+      let draft = ReminderDraft(
+        title: title,
+        notes: notes,
+        url: url,
+        dueDate: dueDate,
+        alarmDate: alarmDate,
+        recurrenceRule: recurrenceRule,
+        locationTrigger: locationTrigger,
+        priority: priority
+      )
+      let reminder = try await store.createReminder(draft, target: targetList)
       OutputRenderer.printReminder(reminder, format: runtime.outputFormat)
     }
+  }
+
+  static func makeLocationTrigger(
+    location: String?,
+    radius: String?,
+    leaving: Bool
+  ) throws -> LocationTrigger? {
+    guard let location else {
+      if radius != nil || leaving {
+        throw RemindCoreError.operationFailed("Use --location with --radius or --leaving")
+      }
+      return nil
+    }
+    let radius = try radius.map(parseRadius) ?? 100
+    return LocationTrigger(
+      address: location,
+      radius: radius,
+      proximity: leaving ? .leaving : .arriving
+    )
+  }
+
+  private static func parseRadius(_ value: String) throws -> Double {
+    guard let radius = Double(value), radius.isFinite, radius > 0 else {
+      throw RemindCoreError.operationFailed("Invalid radius: \"\(value)\"")
+    }
+    return radius
   }
 }

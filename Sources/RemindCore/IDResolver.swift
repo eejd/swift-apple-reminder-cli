@@ -5,18 +5,23 @@ public enum IDResolver {
 
   public static func resolve(
     _ inputs: [String],
-    from reminders: [ReminderItem]
+    from reminders: [ReminderItem],
+    numericFrom numericReminders: [ReminderItem]? = nil
   ) throws -> [ReminderItem] {
     let sorted = ReminderFiltering.sort(reminders)
+    let numericSorted = ReminderFiltering.sort(numericReminders ?? reminders)
     var resolved: [ReminderItem] = []
+    var seen: Set<String> = []
+    func appendUnique(_ item: ReminderItem) {
+      if seen.insert(item.id).inserted {
+        resolved.append(item)
+      }
+    }
     for input in inputs {
       let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-      if let index = Int(trimmed) {
-        let idx = index - 1
-        guard idx >= 0 && idx < sorted.count else {
-          throw RemindCoreError.invalidIdentifier(trimmed)
-        }
-        resolved.append(sorted[idx])
+      let numericIndex = Int(trimmed)
+      if let index = numericIndex, index > 0, index <= numericSorted.count {
+        appendUnique(numericSorted[index - 1])
         continue
       }
 
@@ -26,13 +31,16 @@ public enum IDResolver {
 
       let matches = sorted.filter { $0.id.lowercased().hasPrefix(trimmed.lowercased()) }
       if matches.isEmpty {
+        if numericIndex != nil {
+          throw RemindCoreError.invalidIdentifier(trimmed)
+        }
         throw RemindCoreError.reminderNotFound(trimmed)
       }
       if matches.count > 1 {
         throw RemindCoreError.ambiguousIdentifier(trimmed, matches: matches.map { $0.id })
       }
       if let match = matches.first {
-        resolved.append(match)
+        appendUnique(match)
       }
     }
     return resolved
