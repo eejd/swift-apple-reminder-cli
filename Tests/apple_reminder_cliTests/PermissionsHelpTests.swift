@@ -1,7 +1,7 @@
 import Testing
 
 @testable import RemindCore
-@testable import remindctl
+@testable import apple_reminder_cli
 
 @MainActor
 struct PermissionsHelpTests {

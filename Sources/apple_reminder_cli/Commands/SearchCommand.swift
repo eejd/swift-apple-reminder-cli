@@ -33,9 +33,9 @@ enum SearchCommand {
         )
       ),
       usageExamples: [
-        "remindctl search milk",
-        "remindctl search \"project notes\" --list Work",
-        "remindctl search invoice --completed --json",
+        "apple_reminder_cli search milk",
+        "apple_reminder_cli search \"project notes\" --list Work",
+        "apple_reminder_cli search invoice --completed --json",
       ]
     ) { values, runtime in
       guard let query = values.argument(0)?.trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else {

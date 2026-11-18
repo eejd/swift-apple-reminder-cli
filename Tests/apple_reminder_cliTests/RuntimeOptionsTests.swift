@@ -1,6 +1,6 @@
 import Testing
 
-@testable import remindctl
+@testable import apple_reminder_cli
 
 struct RuntimeOptionsTests {
   @Test("Runtime format validation rejects unknown values")

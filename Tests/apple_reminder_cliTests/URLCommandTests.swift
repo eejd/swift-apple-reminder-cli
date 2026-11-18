@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import remindctl
+@testable import apple_reminder_cli
 
 struct URLCommandTests {
   @Test("URL parsing requires an explicit scheme")

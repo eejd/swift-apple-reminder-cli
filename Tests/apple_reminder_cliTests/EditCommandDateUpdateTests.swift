@@ -1,6 +1,6 @@
 import Testing
 
-@testable import remindctl
+@testable import apple_reminder_cli
 
 struct EditCommandDateUpdateTests {
   @Test("Due-only edits do not request alarm mutation")

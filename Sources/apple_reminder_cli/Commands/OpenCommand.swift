@@ -34,11 +34,11 @@ enum OpenCommand {
         )
       ),
       usageExamples: [
-        "remindctl open",
-        "remindctl open 1",
-        "remindctl open --list Work",
-        "remindctl open --list Work --app",
-        "remindctl open --app",
+        "apple_reminder_cli open",
+        "apple_reminder_cli open 1",
+        "apple_reminder_cli open --list Work",
+        "apple_reminder_cli open --list Work --app",
+        "apple_reminder_cli open --app",
       ]
     ) { values, runtime in
       let listTarget = try CommandHelpers.listTarget(name: values.option("list"), id: values.option("listID"))

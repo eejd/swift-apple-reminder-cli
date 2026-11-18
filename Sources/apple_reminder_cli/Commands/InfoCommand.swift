@@ -16,9 +16,9 @@ enum InfoCommand {
         )
       ),
       usageExamples: [
-        "remindctl info 1",
-        "remindctl info 4A83",
-        "remindctl info 4A83 --json",
+        "apple_reminder_cli info 1",
+        "apple_reminder_cli info 4A83",
+        "apple_reminder_cli info 4A83 --json",
       ]
     ) { values, runtime in
       guard let input = values.argument(0) else {

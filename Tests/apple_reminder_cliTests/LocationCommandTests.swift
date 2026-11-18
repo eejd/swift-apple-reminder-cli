@@ -1,7 +1,7 @@
 import RemindCore
 import Testing
 
-@testable import remindctl
+@testable import apple_reminder_cli
 
 struct LocationCommandTests {
   @Test("Location radii must be finite and positive", arguments: ["inf", "+inf", "1e309", "nan", "0", "-1"])

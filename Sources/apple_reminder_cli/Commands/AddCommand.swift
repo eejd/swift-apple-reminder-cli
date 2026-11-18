@@ -63,13 +63,13 @@ enum AddCommand {
         )
       ),
       usageExamples: [
-        "remindctl add \"Buy milk\"",
-        "remindctl add --title \"Call mom\" --list Personal --due tomorrow",
-        "remindctl add \"Call mom\" --due \"2026-01-03 09:00\" --alarm \"2026-01-03 08:55\"",
-        "remindctl add \"Check mailbox\" --location \"1 Apple Park Way, Cupertino, CA\"",
-        "remindctl add \"Take vitamins\" --due tomorrow --repeat daily",
-        "remindctl add \"Review docs\" --priority high",
-        "remindctl add \"Buy headphones\" --url \"https://example.com/product\"",
+        "apple_reminder_cli add \"Buy milk\"",
+        "apple_reminder_cli add --title \"Call mom\" --list Personal --due tomorrow",
+        "apple_reminder_cli add \"Call mom\" --due \"2026-01-03 09:00\" --alarm \"2026-01-03 08:55\"",
+        "apple_reminder_cli add \"Check mailbox\" --location \"1 Apple Park Way, Cupertino, CA\"",
+        "apple_reminder_cli add \"Take vitamins\" --due tomorrow --repeat daily",
+        "apple_reminder_cli add \"Review docs\" --priority high",
+        "apple_reminder_cli add \"Buy headphones\" --url \"https://example.com/product\"",
       ]
     ) { values, runtime in
       let titleOption = values.option("title")

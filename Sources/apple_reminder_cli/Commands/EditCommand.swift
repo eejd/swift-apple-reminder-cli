@@ -58,14 +58,14 @@ enum EditCommand {
         )
       ),
       usageExamples: [
-        "remindctl edit 1 --title \"New title\"",
-        "remindctl edit 4A83 --due tomorrow",
-        "remindctl edit 4A83 --alarm \"2026-01-03 08:55\"",
-        "remindctl edit 4A83 --repeat weekly",
-        "remindctl edit 2 --priority high --notes \"Call before noon\"",
-        "remindctl edit 3 --clear-due --clear-alarm --no-repeat",
-        "remindctl edit 4A83 --url \"https://example.com/product\"",
-        "remindctl edit 4A83 --clear-url",
+        "apple_reminder_cli edit 1 --title \"New title\"",
+        "apple_reminder_cli edit 4A83 --due tomorrow",
+        "apple_reminder_cli edit 4A83 --alarm \"2026-01-03 08:55\"",
+        "apple_reminder_cli edit 4A83 --repeat weekly",
+        "apple_reminder_cli edit 2 --priority high --notes \"Call before noon\"",
+        "apple_reminder_cli edit 3 --clear-due --clear-alarm --no-repeat",
+        "apple_reminder_cli edit 4A83 --url \"https://example.com/product\"",
+        "apple_reminder_cli edit 4A83 --clear-url",
       ]
     ) { values, runtime in
       guard let input = values.argument(0) else {

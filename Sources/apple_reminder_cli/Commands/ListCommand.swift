@@ -42,12 +42,12 @@ enum ListCommand {
         )
       ),
       usageExamples: [
-        "remindctl list",
-        "remindctl list Work",
-        "remindctl list Work Errands",
-        "remindctl list Work --rename Office",
-        "remindctl list Work --delete",
-        "remindctl list Projects --create",
+        "apple_reminder_cli list",
+        "apple_reminder_cli list Work",
+        "apple_reminder_cli list Work Errands",
+        "apple_reminder_cli list Work --rename Office",
+        "apple_reminder_cli list Work --delete",
+        "apple_reminder_cli list Projects --create",
       ]
     ) { values, runtime in
       let names = values.positional

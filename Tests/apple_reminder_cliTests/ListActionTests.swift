@@ -1,11 +1,11 @@
 import RemindCore
 import Testing
 
-@testable import remindctl
+@testable import apple_reminder_cli
 
 struct ListActionTests {
   private func action(_ arguments: [String]) throws -> ListCommand.Action {
-    let values = try CommandRouter().program.resolve(arguments: ["remindctl", "list"] + arguments).parsedValues
+    let values = try CommandRouter().program.resolve(arguments: ["apple_reminder_cli", "list"] + arguments).parsedValues
     return try ListCommand.action(
       names: values.positional,
       listID: values.option("listID"),

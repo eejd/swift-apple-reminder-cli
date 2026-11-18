@@ -24,14 +24,14 @@ enum DoctorCommand {
         )
       ),
       usageExamples: [
-        "remindctl doctor",
-        "remindctl doctor --for-agent --json",
+        "apple_reminder_cli doctor",
+        "apple_reminder_cli doctor --for-agent --json",
       ]
     ) { values, runtime in
       let status = RemindersStore.authorizationStatus()
       let report = DoctorReport(
         authorization: AuthorizationSummary(status: status.rawValue, authorized: status.isAuthorized),
-        executable: CommandLine.arguments.first ?? "remindctl",
+        executable: CommandLine.arguments.first ?? "apple_reminder_cli",
         shell: ProcessInfo.processInfo.environment["SHELL"],
         richRead: RichReadDiagnostics.collect(),
         agentNotes: values.flag("forAgent") ? PermissionsHelp.guidanceLines(for: status) : []

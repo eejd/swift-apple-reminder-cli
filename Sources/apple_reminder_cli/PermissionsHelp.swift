@@ -15,7 +15,7 @@ enum PermissionsHelp {
       ]
     case .denied, .restricted:
       return [
-        "Grant access in \(settingsPath) for Terminal (or remindctl).",
+        "Grant access in \(settingsPath) for Terminal (or apple_reminder_cli).",
         "If no prompt appears, run `\(promptWorkaround)` once from the same terminal app.",
         "If running over SSH, grant access on the Mac that runs the command.",
       ]

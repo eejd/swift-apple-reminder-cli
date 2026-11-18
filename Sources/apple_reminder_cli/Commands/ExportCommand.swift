@@ -39,9 +39,9 @@ enum ExportCommand {
         )
       ),
       usageExamples: [
-        "remindctl export",
-        "remindctl export --list Work --export-format csv",
-        "remindctl export --list-id 7A12 --json",
+        "apple_reminder_cli export",
+        "apple_reminder_cli export --list Work --export-format csv",
+        "apple_reminder_cli export --list-id 7A12 --json",
       ]
     ) { values, runtime in
       let store = RemindersStore()

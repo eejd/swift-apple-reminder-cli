@@ -173,7 +173,7 @@ struct ReminderURLNoteMirrorTests {
   }
 
   @Test("URL mirror preserves authored plain remindctl URL lines")
-  func preservesAuthoredPlainRemindctlURLLines() {
+  func preservesAuthoredPlainAppleReminderCLIURLLines() {
     let oldURL = URL(string: "https://example.com/old")!
     let newURL = URL(string: "https://example.com/new")!
 

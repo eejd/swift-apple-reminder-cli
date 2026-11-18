@@ -1,6 +1,6 @@
 import Testing
 
-@testable import remindctl
+@testable import apple_reminder_cli
 
 struct ReminderLinksTests {
   @Test("Reminder links use Reminders entity URL kinds")

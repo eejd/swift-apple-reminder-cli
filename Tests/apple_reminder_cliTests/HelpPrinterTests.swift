@@ -41,8 +41,8 @@ struct HelpPrinterTests {
 
   @Test("Add and edit help include alarm, location, repeat, and URL options")
   func alarmLocationRepeatAndURLHelp() {
-    let addHelp = HelpPrinter.renderCommand(rootName: "remindctl", spec: AddCommand.spec).joined(separator: "\n")
-    let editHelp = HelpPrinter.renderCommand(rootName: "remindctl", spec: EditCommand.spec).joined(separator: "\n")
+    let addHelp = HelpPrinter.renderCommand(rootName: "apple_reminder_cli", spec: AddCommand.spec).joined(separator: "\n")
+    let editHelp = HelpPrinter.renderCommand(rootName: "apple_reminder_cli", spec: EditCommand.spec).joined(separator: "\n")
 
     #expect(addHelp.contains("--alarm"))
     #expect(addHelp.contains("--location"))
@@ -59,8 +59,8 @@ struct HelpPrinterTests {
 
   @Test("Common help includes exact list targeting and table output")
   func listIDAndFormatHelp() {
-    let showHelp = HelpPrinter.renderCommand(rootName: "remindctl", spec: ShowCommand.spec).joined(separator: "\n")
-    let addHelp = HelpPrinter.renderCommand(rootName: "remindctl", spec: AddCommand.spec).joined(separator: "\n")
+    let showHelp = HelpPrinter.renderCommand(rootName: "apple_reminder_cli", spec: ShowCommand.spec).joined(separator: "\n")
+    let addHelp = HelpPrinter.renderCommand(rootName: "apple_reminder_cli", spec: AddCommand.spec).joined(separator: "\n")
 
     #expect(showHelp.contains("--list-id"))
     #expect(showHelp.contains("--format"))

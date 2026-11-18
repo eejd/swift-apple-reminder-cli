@@ -27,10 +27,10 @@ enum LinkCommand {
         )
       ),
       usageExamples: [
-        "remindctl link 1",
-        "remindctl link 4A83 --json",
-        "remindctl link --list Work",
-        "remindctl link --list-id 7A12",
+        "apple_reminder_cli link 1",
+        "apple_reminder_cli link 4A83 --json",
+        "apple_reminder_cli link --list Work",
+        "apple_reminder_cli link --list-id 7A12",
       ]
     ) { values, runtime in
       let result = try await resolve(values: values)

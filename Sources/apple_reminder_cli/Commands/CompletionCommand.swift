@@ -16,8 +16,8 @@ enum CompletionCommand {
         )
       ),
       usageExamples: [
-        "remindctl completion zsh",
-        "remindctl completion bash",
+        "apple_reminder_cli completion zsh",
+        "apple_reminder_cli completion bash",
       ]
     ) { values, _ in
       let shell = values.argument(0) ?? "zsh"
@@ -38,29 +38,29 @@ enum CompletionCommand {
 
   private static func zsh() -> String {
     """
-    #compdef remindctl
-    _remindctl() {
+    #compdef apple_reminder_cli
+    _apple_reminder_cli() {
       local -a commands
-      commands=(\(commands.map { "'\($0):remindctl \($0)'" }.joined(separator: " ")))
+      commands=(\(commands.map { "'\($0):apple_reminder_cli \($0)'" }.joined(separator: " ")))
       if (( CURRENT == 2 )); then
         _describe 'command' commands
       else
         _arguments '*:argument:_files'
       fi
     }
-    _remindctl "$@"
+    _apple_reminder_cli "$@"
     """
   }
 
   private static func bash() -> String {
     """
-    _remindctl_completion() {
+    _apple_reminder_cli_completion() {
       local cur="${COMP_WORDS[COMP_CWORD]}"
       if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=( $(compgen -W "\(commands.joined(separator: " "))" -- "$cur") )
       fi
     }
-    complete -F _remindctl_completion remindctl
+    complete -F _apple_reminder_cli_completion apple_reminder_cli
     """
   }
 }

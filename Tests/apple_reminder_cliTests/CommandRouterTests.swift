@@ -1,18 +1,18 @@
 import Testing
 
-@testable import remindctl
+@testable import apple_reminder_cli
 
 struct CommandRouterTests {
   @Test("Surplus command arguments are rejected")
   func surplusArguments() async {
-    let code = await CommandRouter().run(argv: ["remindctl", "completion", "bash", "unexpected"])
+    let code = await CommandRouter().run(argv: ["apple_reminder_cli", "completion", "bash", "unexpected"])
     #expect(code == 1)
   }
 
   @Test("Bulk commands preserve all positional values", arguments: ["list", "complete", "delete"])
   func bulkArguments(_ command: String) throws {
     let invocation = try CommandRouter().program.resolve(arguments: [
-      "remindctl", command, "First", "Second", "--plain",
+      "apple_reminder_cli", command, "First", "Second", "--plain",
     ])
     #expect(invocation.parsedValues.positional == ["First", "Second"])
     #expect(invocation.parsedValues.flags.contains("plainOutput"))
@@ -22,7 +22,7 @@ struct CommandRouterTests {
     "Single-target commands reject extra positionals", arguments: ["add", "edit", "search", "info", "link", "open"])
   func singleTargetArguments(_ command: String) {
     #expect(throws: (any Error).self) {
-      try CommandRouter().program.resolve(arguments: ["remindctl", command, "First", "Second"])
+      try CommandRouter().program.resolve(arguments: ["apple_reminder_cli", command, "First", "Second"])
     }
   }
 
@@ -34,13 +34,13 @@ struct CommandRouterTests {
 
   @Test("Help and version after the terminator are data", arguments: ["--help", "-h", "--version", "-V"])
   func literalControlArguments(_ value: String) async {
-    let code = await CommandRouter().run(argv: ["remindctl", "completion", "--", value])
+    let code = await CommandRouter().run(argv: ["apple_reminder_cli", "completion", "--", value])
     #expect(code == 1)
   }
 
   @Test("Help and version before the terminator remain controls", arguments: ["--help", "--version"])
   func controlArguments(_ value: String) async {
-    let code = await CommandRouter().run(argv: ["remindctl", "completion", value, "--", "unsupported"])
+    let code = await CommandRouter().run(argv: ["apple_reminder_cli", "completion", value, "--", "unsupported"])
     #expect(code == 0)
   }
 }
